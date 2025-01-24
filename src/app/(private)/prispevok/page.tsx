@@ -1,13 +1,9 @@
-// robertweb/src/app/prispevok/page.tsx
+import PostsView from '@/views/private/PostsView';
 
-import Typography from '@mui/material/Typography';
-
-export const metadata = { title: 'Zoznam prispevkov | RobertWeb'};
+export const metadata = { 
+  title: 'Zoznam prispevkov | Zoskagram'
+};
 
 export default function PostList() {
-  return (
-
-      <Typography> Zoznam prispevok </Typography>
-
-  );
+  return <PostsView />;
 }
