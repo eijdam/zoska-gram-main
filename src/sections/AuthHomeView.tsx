@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import Typography from '@mui/material/Typography';
 
+
 export default function AuthHomeView() {
   const { data: session, status } = useSession();
 
