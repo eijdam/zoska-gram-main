@@ -186,5 +186,5 @@ const NonAuthHomeView = () => {
     </Box>
   );
 };
-
+ 
 export default NonAuthHomeView;
