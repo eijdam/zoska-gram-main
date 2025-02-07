@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { fetchPosts } from '@/app/actions/posts';
 import { Post, User } from '@prisma/client';
-import { Card, CardContent, CardMedia, Typography, Container, CircularProgress, Alert } from '@mui/material';
+import { Card, CardContent, CardMedia, Typography, Container, CircularProgress, Alert, Avatar, Box } from '@mui/material';
+import { formatDistanceToNow } from 'date-fns';
 
 type PostWithUser = Post & { user: User };
 
@@ -36,27 +37,24 @@ const PostsView: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
-      <div 
-        style={{ 
-          display: 'flex', 
-          flexDirection: 'column', // Align items vertically
-          gap: '16px', 
-          paddingBottom: '16px', 
-          justifyContent: 'flex-start' 
-        }}
-      >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '16px', justifyContent: 'flex-start' }}>
         {posts.map((post) => (
-          <Card 
-            key={post.id} 
-            sx={{ 
-              width: '100%', 
-              height: 'auto', 
-              display: 'flex', 
-              flexDirection: 'column' 
-            }}
-          >
+          <Card key={post.id} sx={{ width: '100%', height: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Avatar alt={post.user?.name || 'Anonymous User'} src={post.user?.image || '/default-avatar.jpg'} />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="h6" fontWeight="bold">{post.user?.name || 'Anonymous User'}</Typography>
+                <Typography variant="body2" color="textSecondary">
+                  {post.caption || 'No caption provided'}
+                </Typography>
+                <Typography variant="body2" color="textSecondary" sx={{ fontSize: '0.8rem' }}>
+                  {formatDistanceToNow(new Date(post.updatedAt))} ago
+                </Typography>
+              </Box>
+            </CardContent>
+
             {post.imageUrl && (
-              <CardMedia sx={{ height: 300 }}>
+              <CardMedia sx={{ height: 450 }}>
                 <Image
                   src={post.imageUrl}
                   alt={post.caption || 'Post image'}
@@ -70,14 +68,6 @@ const PostsView: React.FC = () => {
                 />
               </CardMedia>
             )}
-            <CardContent>
-              <Typography variant="h6">
-                {post.user?.name || 'Anonymous User'}
-              </Typography>
-              <Typography variant="body2">
-                {post.caption || 'No caption provided'}
-              </Typography>
-            </CardContent>
           </Card>
         ))}
       </div>
