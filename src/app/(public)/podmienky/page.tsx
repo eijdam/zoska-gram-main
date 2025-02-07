@@ -1,9 +1,16 @@
-import React from 'react';
-import { Box, Container, Typography, Paper } from '@mui/material';
+'use client'; // Mark the component as a Client Component
 
-export const metadata = { title: 'Podmienky používania | ZoskaWeb' };
+import React from 'react';
+import { Box, Container, Typography, Paper, Button } from '@mui/material';
+import { useRouter } from 'next/navigation'; // Import useRouter from next/navigation
 
 export default function Podmienky() {
+  const router = useRouter(); // Initialize the router from next/navigation
+
+  const handleGoBack = () => {
+    router.back(); // This method takes the user to the previous page
+  };
+
   return (
     <Box
       sx={{
@@ -12,6 +19,29 @@ export default function Podmienky() {
         pb: '60px', // Extra bottom padding set to 60px to ensure content is not hidden under the navbar
       }}
     >
+      {/* Back Button Section */}
+      <Container sx={{ py: 2 }}>
+        <Button
+          variant="outlined"
+          color="primary"
+          onClick={handleGoBack}
+          sx={{
+            display: 'block',
+            margin: '0 auto',
+            fontWeight: 'bold',
+            borderRadius: '8px',
+            padding: '10px 20px',
+            textTransform: 'none',
+            '&:hover': {
+              backgroundColor: 'primary.main',
+              color: 'white',
+            },
+          }}
+        >
+          Späť
+        </Button>
+      </Container>
+
       {/* Hero Section */}
       <Container sx={{ py: 8 }}>
         <Typography
@@ -51,34 +81,34 @@ export default function Podmienky() {
           </Typography>
 
           {/* Duševné vlastníctvo */}
-          <Typography variant="h4" sx={{ mb: 3, mt: 4, color: 'primary.main' }}>
+          <Typography variant="h4" sx={{ mb: 3, mt: 4, color: 'primary.main' }} >
             Duševné vlastníctvo
           </Typography>
-          <Typography variant="body1" sx={{ mb: 2 }}>
+          <Typography variant="body1" sx={{ mb: 2 }} >
             Všetok obsah, vrátane textov, obrázkov, log a ďalších materiálov na tejto webovej stránke, je chránený autorskými právami. Nepovolené kopírovanie, reprodukcia alebo distribúcia obsahu bez nášho výslovného súhlasu je zakázané.
           </Typography>
 
           {/* Obmedzenie zodpovednosti */}
-          <Typography variant="h4" sx={{ mb: 3, mt: 4, color: 'primary.main' }}>
+          <Typography variant="h4" sx={{ mb: 3, mt: 4, color: 'primary.main' }} >
             Obmedzenie zodpovednosti
           </Typography>
-          <Typography variant="body1" sx={{ mb: 2 }}>
+          <Typography variant="body1" sx={{ mb: 2 }} >
             ZoskaWeb nezodpovedá za žiadne škody vyplývajúce z používania alebo nemožnosti používania našich služieb. Používanie našich služieb je na vlastné riziko.
           </Typography>
 
           {/* Zmeny podmienok */}
-          <Typography variant="h4" sx={{ mb: 3, mt: 4, color: 'primary.main' }}>
+          <Typography variant="h4" sx={{ mb: 3, mt: 4, color: 'primary.main' }} >
             Zmeny podmienok
           </Typography>
-          <Typography variant="body1" sx={{ mb: 2 }}>
+          <Typography variant="body1" sx={{ mb: 2 }} >
             ZoskaWeb si vyhradzuje právo kedykoľvek zmeniť tieto Podmienky. Aktuálna verzia Podmienok bude vždy zverejnená na našej webovej stránke. Pokračovaním v používaní našich služieb vyjadrujete súhlas so všetkými zmenami.
           </Typography>
 
           {/* Kontakt */}
-          <Typography variant="h4" sx={{ mb: 3, mt: 4, color: 'primary.main' }}>
+          <Typography variant="h4" sx={{ mb: 3, mt: 4, color: 'primary.main' }} >
             Kontakt
           </Typography>
-          <Typography variant="body1">
+          <Typography variant="body1" >
             Ak máte akékoľvek otázky alebo pripomienky týkajúce sa týchto Podmienok, kontaktujte nás na adrese{' '}
             <a href="mailto:podpora@zoskaweb.com">podpora@zoskaweb.com</a>.
           </Typography>
@@ -86,9 +116,9 @@ export default function Podmienky() {
       </Container>
 
       {/* Footer Section */}
-      <Box sx={{ bgcolor: 'primary.main', color: 'white', py: 4, mt: 4 }}>
+      <Box sx={{ bgcolor: 'primary.main', color: 'white', py: 4, mt: 4 }} >
         <Container>
-          <Typography variant="body1" align="center">
+          <Typography variant="body1" align="center" >
             © {new Date().getFullYear()} ZoskaWeb. All rights reserved.
           </Typography>
         </Container>
