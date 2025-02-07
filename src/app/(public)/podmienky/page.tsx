@@ -39,7 +39,7 @@ export default function Podmienky() {
             Úvod
           </Typography>
           <Typography variant="body1" sx={{ mb: 2 }}>
-            Tieto podmienky používania (ďalej len "Podmienky") upravujú prístup a používanie webovej stránky ZoskaWeb. Používaním našich služieb súhlasíte s týmito Podmienkami.
+            Tieto podmienky používania (ďalej len &quot;Podmienky&quot;) upravujú prístup a používanie webovej stránky ZoskaWeb. Používaním našich služieb súhlasíte s týmito Podmienkami.
           </Typography>
 
           {/* Prístup a registrácia */}
