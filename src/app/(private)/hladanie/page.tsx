@@ -7,6 +7,7 @@ import { TextField, Typography, Container, Card, CardContent, Avatar, Box, Circu
 import { fetchProfiles, fetchAllProfiles } from '@/app/actions/profiles';
 import { debounce } from 'lodash';
 import { Profile, User } from '@prisma/client';
+import { useRouter } from 'next/navigation';
 
 type ProfileWithUser = Profile & {
   user: User;
@@ -17,6 +18,7 @@ export default function SearchPage() {
   const [profiles, setProfiles] = useState<ProfileWithUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   // Load all profiles initially
   useEffect(() => {
@@ -62,6 +64,10 @@ export default function SearchPage() {
     handleSearch(newTerm);
   };
 
+  const handleProfileClick = (userId: string) => {
+    router.push(`/profil/${userId}`);
+  };
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 4 }}>
@@ -93,7 +99,18 @@ export default function SearchPage() {
       {profiles.length > 0 ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {profiles.map((profile) => (
-            <Card key={profile.id}>
+            <Card 
+              key={profile.id}
+              onClick={() => handleProfileClick(profile.userId)}
+              sx={{ 
+                cursor: 'pointer',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: 3,
+                }
+              }}
+            >
               <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Avatar
                   src={profile.user.image || undefined}
