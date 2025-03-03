@@ -6,14 +6,12 @@ import { useEffect, useState } from "react"
 import { Box, CircularProgress } from "@mui/material"
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-
-    const checkAuth = () => {
+    const timeoutId = setInterval(() => {
       if (status === "loading") {
         return;
       }
@@ -24,18 +22,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       }
 
       setIsLoading(false);
-    };
-
-    // Initial check
-    checkAuth();
-
-    // Set up periodic checks
-    timeoutId = setInterval(checkAuth, 1000);
+    }, 1000);
 
     return () => {
-      if (timeoutId) {
-        clearInterval(timeoutId);
-      }
+      clearInterval(timeoutId);
     };
   }, [status, router]);
 

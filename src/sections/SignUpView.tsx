@@ -21,7 +21,7 @@ export default function SignUpView() {
       return;
     }
     try {
-      const result = await signIn('google', {
+      await signIn('google', {
         callbackUrl: '/',
         redirect: true,
       });
