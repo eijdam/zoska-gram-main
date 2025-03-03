@@ -2,21 +2,59 @@
 
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import { Box, CircularProgress } from "@mui/material"
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { status } = useSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/auth/prihlasenie")
-    }
-  }, [status, router])
+    let timeoutId: NodeJS.Timeout;
 
-  if (status === "loading") {
-    return <div>Loading...</div>
+    const checkAuth = () => {
+      if (status === "loading") {
+        return;
+      }
+
+      if (status === "unauthenticated") {
+        router.replace("/auth/prihlasenie");
+        return;
+      }
+
+      setIsLoading(false);
+    };
+
+    // Initial check
+    checkAuth();
+
+    // Set up periodic checks
+    timeoutId = setInterval(checkAuth, 1000);
+
+    return () => {
+      if (timeoutId) {
+        clearInterval(timeoutId);
+      }
+    };
+  }, [status, router]);
+
+  if (status === "loading" || isLoading) {
+    return (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="100vh"
+      >
+        <CircularProgress />
+      </Box>
+    );
   }
 
-  return <>{children}</>
+  if (status === "authenticated") {
+    return <>{children}</>;
+  }
+
+  return null;
 }

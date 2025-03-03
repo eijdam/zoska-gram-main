@@ -48,7 +48,10 @@ export default function SignOutView() {
   const { status } = useSession();
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/' });
+    await signOut({ 
+      callbackUrl: '/',
+      redirect: true
+    });
   };
 
   if (status === 'loading') {
@@ -71,7 +74,7 @@ export default function SignOutView() {
         padding="30px"
         boxShadow={3}
         borderRadius="8px"
-        bgcolor="white"
+        bgcolor="background.paper"
         width="350px"
         maxWidth="400px"
       >
@@ -85,9 +88,9 @@ export default function SignOutView() {
           variant="contained" 
           color="primary" 
           onClick={handleSignOut}
-          style={{ marginTop: '20px' }}
+          sx={{ marginTop: '20px' }}
         >
-          Sign Out
+          Odhlásiť sa
         </Button>
       </Box>
     </Box>

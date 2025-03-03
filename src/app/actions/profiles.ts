@@ -5,6 +5,21 @@
 // Import Prisma client
 import { prisma } from "@/app/api/auth/[...nextauth]/prisma";
 
+// Fetch all profiles
+export const fetchAllProfiles = async () => {
+  try {
+    const profiles = await prisma.profile.findMany({
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return profiles;
+  } catch (error) {
+    console.error("Error fetching all profiles:", error);
+    throw new Error("Could not fetch profiles");
+  }
+};
+
 // Fetch profiles based on search term
 export const fetchProfiles = async (searchTerm: string) => {
   try {

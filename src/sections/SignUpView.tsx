@@ -15,12 +15,19 @@ export default function SignUpView() {
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState(false);
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     if (!agreed) {
       setError(true);
       return;
     }
-    signIn('google');
+    try {
+      const result = await signIn('google', {
+        callbackUrl: '/',
+        redirect: true,
+      });
+    } catch (error) {
+      console.error('Sign-in error:', error);
+    }
   };
 
   return (
