@@ -84,6 +84,7 @@ model User {
   posts         Post[]
   profile       Profile?
   stories       Story[]
+  savedPosts    SavedPost[]
 
   // Add following relationships
   followers     Follows[]       @relation("following")
@@ -99,6 +100,7 @@ model Post {
   updatedAt DateTime @updatedAt
   likes     Like[]
   comments  Comment[]
+  savedPosts SavedPost[]
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -151,6 +153,18 @@ model Follows {
   @@id([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
+}
+
+model SavedPost {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
 }
 
 model Story {

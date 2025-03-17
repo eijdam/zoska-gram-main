@@ -2,9 +2,9 @@
 
 import { Metadata } from "next";
 import "./globals.css";
-import Navbar from "@/components/NavBar";
+import NavBar from "../components/NavBar";
 import AuthProvider from "../components/AuthProvider";
-import ThemeProvider from "@/components/ThemeProvider";
+import ThemeProvider from "../components/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "SnapZoška",
@@ -21,12 +21,12 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <ThemeProvider>
-          <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-            <main style={{ flexGrow: 1 }}>
-              {children}
-            </main>
-          </div>
-          <Navbar /> 
+            <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingBottom: '48px' }}>
+              <main style={{ flexGrow: 1 }}>
+                {children}
+              </main>
+              <NavBar />
+            </div>
           </ThemeProvider>
         </AuthProvider>
       </body>

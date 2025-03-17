@@ -14,10 +14,9 @@ import {
   getFollowCounts,
   isFollowing,
   getFollowersWithDetails,
-  getFollowingWithDetails,
-  fetchProfile
+  getFollowingWithDetails
 } from '@/app/actions/profiles';
-import { fetchPostsByUserId } from '@/app/actions/posts';
+import { fetchPostsByUserId, fetchSavedPostsByUserId } from '@/app/actions/posts';
 import { Profile, User, Post } from '@prisma/client';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -71,6 +70,7 @@ function TabPanel(props: TabPanelProps) {
 export default function ProfilePage({ params }: { params: { userId: string } }) {
   const [profile, setProfile] = useState<ProfileWithUser | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [savedPosts, setSavedPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
@@ -145,9 +145,10 @@ export default function ProfilePage({ params }: { params: { userId: string } }) 
         }
 
         // Then fetch profile and posts
-        const [profileData, postsData] = await Promise.all([
+        const [profileData, postsData, savedPostsData] = await Promise.all([
           fetchProfileByUserId(params.userId),
-          fetchPostsByUserId(params.userId)
+          fetchPostsByUserId(params.userId),
+          session?.user?.id === params.userId ? fetchSavedPostsByUserId(params.userId) : []
         ]);
 
         if (!profileData) {
@@ -156,6 +157,7 @@ export default function ProfilePage({ params }: { params: { userId: string } }) 
 
         setProfile(profileData);
         setPosts(postsData || []);
+        setSavedPosts(savedPostsData || []);
       } catch (err) {
         console.error('Error loading profile:', err);
         setError('Failed to load profile. Please try refreshing the page.');
@@ -166,8 +168,8 @@ export default function ProfilePage({ params }: { params: { userId: string } }) 
 
     const checkStories = async () => {
       const result = await getStories();
-      if (result.success) {
-        const userHasStory = result.storyGroups.some(group => group.userId === params.userId);
+      if (result.success && result.storyGroups) {
+        const userHasStory = result.storyGroups.some(group => (group as any).userId === params.userId);
         setHasStory(userHasStory);
       }
     };
@@ -756,11 +758,71 @@ export default function ProfilePage({ params }: { params: { userId: string } }) 
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              No saved posts yet
-            </Typography>
-          </Box>
+          {isOwnProfile ? (
+            savedPosts.length > 0 ? (
+              <ImageList cols={3} gap={2} sx={{ m: 0 }}>
+                {savedPosts.map((post) => (
+                  <ImageListItem 
+                    key={post.id} 
+                    onClick={() => handlePostClick(post.id)}
+                    sx={{ 
+                      cursor: 'pointer',
+                      position: 'relative',
+                      '&:hover': {
+                        '& .overlay': {
+                          opacity: 1
+                        }
+                      }
+                    }}
+                  >
+                    <Image
+                      src={post.imageUrl}
+                      alt={post.caption || 'Post image'}
+                      width={300}
+                      height={300}
+                      style={{
+                        width: '100%',
+                        height: '300px',
+                        objectFit: 'cover',
+                      }}
+                    />
+                    <Box
+                      className="overlay"
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        bgcolor: 'rgba(0, 0, 0, 0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: 0,
+                        transition: 'opacity 0.2s',
+                      }}
+                    >
+                      <Typography variant="caption" color="white">
+                        {formatDistanceToNow(new Date(post.createdAt))} ago
+                      </Typography>
+                    </Box>
+                  </ImageListItem>
+                ))}
+              </ImageList>
+            ) : (
+              <Box sx={{ p: 3, textAlign: 'center' }}>
+                <Typography variant="body1" color="text.secondary">
+                  No saved posts yet
+                </Typography>
+              </Box>
+            )
+          ) : (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body1" color="text.secondary">
+                Saved posts are only visible to you
+              </Typography>
+            </Box>
+          )}
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>

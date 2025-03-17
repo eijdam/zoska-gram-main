@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { fetchPosts, fetchFollowedPosts, toggleLike, addComment, deleteComment, editComment, deletePost } from '@/app/actions/posts';
+import { fetchPosts, fetchFollowedPosts, toggleLike, addComment, deleteComment, editComment, deletePost, toggleSave } from '@/app/actions/posts';
 import { Post, User, Like, Comment } from '@prisma/client';
 import { 
   Card, CardContent, CardMedia, Typography, Container, CircularProgress, 
@@ -18,7 +18,9 @@ import {
   MoreVert as MoreVertIcon,
   Send as SendIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  BookmarkBorder as BookmarkBorderIcon,
+  Bookmark as BookmarkIcon
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import Stories from '@/components/Stories';
@@ -27,6 +29,7 @@ type PostWithDetails = Post & {
   user: User;
   likes: (Like & { user: User })[];
   comments: (Comment & { user: User })[];
+  savedPosts?: { userId: string }[];
 };
 
 export default function PostsView({ initialPosts }: { initialPosts?: PostWithDetails[] }) {
@@ -42,10 +45,12 @@ export default function PostsView({ initialPosts }: { initialPosts?: PostWithDet
   const [activeTab, setActiveTab] = useState(0);
   const [viewStoryDialogOpen, setViewStoryDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const { data: session, status } = useSession();
-  const router = useRouter();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [postToDelete, setPostToDelete] = useState<string | null>(null);
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
   useEffect(() => {
     if (!initialPosts) {
@@ -60,9 +65,9 @@ export default function PostsView({ initialPosts }: { initialPosts?: PostWithDet
     }
   }, [status, error]);
 
-    const loadPosts = async () => {
-      try {
-        setIsLoading(true);
+  const loadPosts = async () => {
+    try {
+      setIsLoading(true);
       if (activeTab === 0) {
         const fetchedPosts = await fetchPosts();
         setPosts(fetchedPosts);
@@ -70,13 +75,13 @@ export default function PostsView({ initialPosts }: { initialPosts?: PostWithDet
         const followedPosts = await fetchFollowedPosts(session.user.id);
         setPosts(followedPosts);
       }
-      } catch (err) {
+    } catch (err) {
       console.error('Error loading posts:', err);
-        setError('Failed to load posts');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      setError('Failed to load posts');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadPosts();
@@ -365,6 +370,98 @@ export default function PostsView({ initialPosts }: { initialPosts?: PostWithDet
     setViewStoryDialogOpen(true);
   };
 
+  const handleSave = async (postId: string) => {
+    if (status === 'loading') {
+      return;
+    }
+    
+    if (status === 'unauthenticated') {
+      router.push('/auth/prihlasenie');
+      return;
+    }
+
+    if (!session?.user?.id) {
+      return;
+    }
+
+    try {
+      setLoadingStates(prev => ({ ...prev, [`save-${postId}`]: true }));
+      const isSaved = await toggleSave(postId, session.user.id);
+      
+      setPosts(currentPosts => 
+        currentPosts.map(post => {
+          if (post.id === postId) {
+            if (isSaved) {
+              return {
+                ...post,
+                savedPosts: [...(post.savedPosts || []), { userId: session.user.id! }]
+              };
+            } else {
+              return {
+                ...post,
+                savedPosts: (post.savedPosts || []).filter(save => save.userId !== session.user.id)
+              };
+            }
+          }
+          return post;
+        })
+      );
+    } catch (err) {
+      console.error('Error toggling save:', err);
+      setError('Failed to update save');
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [`save-${postId}`]: false }));
+    }
+  };
+
+  const handleOpenCommentDialog = (postId: string) => {
+    setSelectedPostId(postId);
+    setCommentDialogOpen(true);
+  };
+
+  const handleCloseCommentDialog = () => {
+    setCommentDialogOpen(false);
+    setSelectedPostId(null);
+  };
+
+  const handleAddCommentFromDialog = async () => {
+    if (!selectedPostId || !session?.user?.id) return;
+    
+    const commentText = commentTexts[selectedPostId]?.trim();
+    if (!commentText) return;
+
+    try {
+      setLoadingStates(prev => ({ ...prev, [`comment-dialog-${selectedPostId}`]: true }));
+      const newComment = await addComment(selectedPostId, session.user.id, commentText);
+      
+      setPosts(currentPosts =>
+        currentPosts.map(post => {
+          if (post.id === selectedPostId) {
+            return {
+              ...post,
+              comments: [
+                {
+                  ...newComment,
+                  user: session.user
+                } as Comment & { user: User },
+                ...post.comments
+              ]
+            };
+          }
+          return post;
+        })
+      );
+      
+      setCommentTexts(prev => ({ ...prev, [selectedPostId]: '' }));
+      handleCloseCommentDialog();
+    } catch (err) {
+      console.error('Error adding comment:', err);
+      setError('Failed to add comment');
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [`comment-dialog-${selectedPostId}`]: false }));
+    }
+  };
+
   if (status === 'loading') {
     return (
       <Container maxWidth="sm" sx={{ py: 4, textAlign: 'center' }}>
@@ -493,8 +590,23 @@ export default function PostsView({ initialPosts }: { initialPosts?: PostWithDet
                     <FavoriteBorderIcon />
                   )}
                 </IconButton>
-                <IconButton sx={{ p: 1 }}>
+                <IconButton 
+                  sx={{ p: 1 }}
+                  onClick={() => handleOpenCommentDialog(post.id)}
+                >
                   <CommentIcon />
+                </IconButton>
+                <IconButton
+                  onClick={() => handleSave(post.id)}
+                  disabled={loadingStates[`save-${post.id}`]}
+                  color={post.savedPosts?.some(save => save.userId === session?.user?.id) ? 'primary' : 'default'}
+                  sx={{ p: 1 }}
+                >
+                  {post.savedPosts?.some(save => save.userId === session?.user?.id) ? (
+                    <BookmarkIcon />
+                  ) : (
+                    <BookmarkBorderIcon />
+                  )}
                 </IconButton>
               </Box>
 
@@ -636,6 +748,40 @@ export default function PostsView({ initialPosts }: { initialPosts?: PostWithDet
           </Button>
           <Button onClick={handleConfirmDelete} color="error" variant="contained">
             Vymazať
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={commentDialogOpen}
+        onClose={handleCloseCommentDialog}
+        aria-labelledby="comment-dialog-title"
+      >
+        <DialogTitle id="comment-dialog-title">
+          Pridať komentár
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            size="small"
+            fullWidth
+            multiline
+            maxRows={4}
+            value={commentTexts[selectedPostId] || ''}
+            onChange={(e) => setCommentTexts(prev => ({ ...prev, [selectedPostId!]: e.target.value }))}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleAddCommentFromDialog();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCommentDialog}>
+            Zrušiť
+          </Button>
+          <Button onClick={handleAddCommentFromDialog} variant="contained">
+            Pridať
           </Button>
         </DialogActions>
       </Dialog>

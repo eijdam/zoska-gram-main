@@ -1,120 +1,187 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import Box from "@mui/material/Box"
-import BottomNavigation from "@mui/material/BottomNavigation"
-import BottomNavigationAction from "@mui/material/BottomNavigationAction"
-import IconButton from "@mui/material/IconButton"
-import HomeIcon from "@mui/icons-material/Home"
-import SearchIcon from "@mui/icons-material/Search"
-import AddIcon from "@mui/icons-material/Add"
-import LogoutIcon from "@mui/icons-material/Logout"
-import PersonAddIcon from "@mui/icons-material/PersonAdd"
-import LoginIcon from "@mui/icons-material/Login"
-import InfoIcon from "@mui/icons-material/Info"
-import Brightness4Icon from "@mui/icons-material/Brightness4"
-import Brightness7Icon from "@mui/icons-material/Brightness7"
-import PersonIcon from "@mui/icons-material/Person"
-import { useSession } from "next-auth/react"
-import Link from "next/link"
-import Image from "next/image"
-import { useColorMode } from "@/components/ThemeProvider"
-import { usePathname } from 'next/navigation'
+import React, { useState } from 'react';
+import { 
+  AppBar, 
+  Toolbar, 
+  IconButton, 
+  Box, 
+  Avatar, 
+  Menu, 
+  MenuItem,
+  Container,
+  Typography,
+  useTheme,
+  Divider
+} from '@mui/material';
+import { 
+  Home as HomeIcon,
+  Add as AddIcon,
+  Search as SearchIcon,
+  AccountCircle as AccountCircleIcon,
+  Logout as LogoutIcon,
+  Bookmark as BookmarkIcon,
+  LightMode as LightModeIcon,
+  DarkMode as DarkModeIcon
+} from '@mui/icons-material';
+import { signOut, useSession } from 'next-auth/react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useColorMode } from './ThemeProvider';
 
-export default function BottomNavbar() {
-  const pathname = usePathname()
-  const { data: session } = useSession()
-  const { toggleColorMode, mode } = useColorMode()
+export default function NavBar() {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const { data: session } = useSession();
+  const router = useRouter();
+  const theme = useTheme();
+  const { toggleColorMode, mode } = useColorMode();
 
-  // Get the active navigation value based on the current path
-  const getActiveNavValue = () => {
-    const path = pathname || ''
-    if (path === '/') return 0
-    if (path === '/prispevok') return 0 // /prispevok should highlight Domov
-    if (path === '/hladanie') return 1
-    if (path.startsWith('/profil')) return 2
-    if (path === '/pridat') return 3
-    if (path === '/auth/odhlasenie') return 4
-    if (path === '/o-mne') return 1
-    if (path === '/auth/prihlasenie') return 2
-    if (path === '/auth/registracia') return 3
-    return 0
-  }
+  const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
 
-  const commonItems = [{ label: "Domov", icon: <HomeIcon />, href: "/" }]
-  const authenticatedItems = [
-    { label: "Hľadať", icon: <SearchIcon />, href: "/hladanie" },
-    {
-      label: "Profily",
-      icon: session?.user?.image ? (
-        <Image
-          src={session.user.image || "/placeholder.svg"}
-          alt="Profile"
-          width={24}
-          height={24}
-          style={{ borderRadius: "50%" }}
-        />
-      ) : (
-        <PersonIcon />
-      ),
-      href: "/profil",
-    },
-    { label: "Pridať", icon: <AddIcon />, href: "/pridat" },
-    { label: "Odhlásiť", icon: <LogoutIcon />, href: "/auth/odhlasenie" },
-  ]
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
 
-  const unauthenticatedItems = [
-    { label: "O mne", icon: <InfoIcon />, href: "/o-mne" },
-    { label: "Prihlásenie", icon: <LoginIcon />, href: "/auth/prihlasenie" },
-    { label: "Registrácia", icon: <PersonAddIcon />, href: "/auth/registracia" },
-  ]
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: '/auth/prihlasenie' });
+  };
 
-  const navItems = [...commonItems, ...(session ? authenticatedItems : unauthenticatedItems)]
+  const handleProfileClick = () => {
+    if (session?.user?.id) {
+      router.push(`/profil/${session.user.id}`);
+      handleClose();
+    }
+  };
+
+  const handleSavedClick = () => {
+    router.push('/ulozene');
+    handleClose();
+  };
+
+  const handleThemeToggle = () => {
+    toggleColorMode();
+    handleClose();
+  };
+
+  const NavButton = ({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) => (
+    <Link href={href} style={{ color: 'inherit', textDecoration: 'none' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+        <IconButton color="inherit" size="medium" sx={{ p: 1 }}>
+          {icon}
+        </IconButton>
+        <Typography variant="caption" sx={{ fontSize: '0.75rem', lineHeight: 1 }}>
+          {label}
+        </Typography>
+      </Box>
+    </Link>
+  );
 
   return (
-    <Box sx={{ width: "100%", position: "fixed", bottom: 0, left: 0, right: 0 }}>
-      <BottomNavigation
-        showLabels
-        value={getActiveNavValue()}
-        sx={{
-          backgroundColor: "background.paper",
-          "& .MuiBottomNavigationAction-root": {
-            color: mode === "dark" ? "pink.main" : "text.secondary",
-            "&.Mui-selected": {
-              color: mode === "dark" ? "pink.main" : "primary.main",
-            },
-          },
-        }}
-      >
-        {navItems.map((item) => (
-          <BottomNavigationAction
-            key={item.label}
-            label={item.label}
-            icon={item.icon}
-            component={Link}
-            href={item.href}
-            sx={{
-              minWidth: "auto",
-              padding: "6px 12px",
-              fontSize: "0.75rem",
-            }}
-          />
-        ))}
-        <IconButton
-          onClick={toggleColorMode}
-          sx={{
-            position: "absolute",
-            right: 16,
-            top: "50%",
-            transform: "translateY(-50%)",
-            color: mode === "dark" ? "pink.main" : "text.secondary",
-          }}
-          aria-label="toggle theme"
-        >
-          {mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
-        </IconButton>
-      </BottomNavigation>
-    </Box>
-  )
-}
+    <AppBar 
+      position="fixed" 
+      color="default" 
+      elevation={1}
+      sx={{ 
+        top: 'auto', 
+        bottom: 0,
+        backgroundColor: 'background.paper'
+      }}
+    >
+      <Container maxWidth="sm">
+        <Toolbar sx={{ 
+          justifyContent: 'space-between', 
+          gap: 1,
+          py: 0.5, 
+          minHeight: '56px',
+          px: 1
+        }}>
+          <NavButton href="/" icon={<HomeIcon />} label="Feed" />
+          <NavButton href="/hladanie" icon={<SearchIcon />} label="Hľadať" />
+          <NavButton href="/pridat" icon={<AddIcon />} label="Pridať" />
 
+          {session ? (
+            <>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                <IconButton
+                  onClick={handleMenu}
+                  color="inherit"
+                  size="medium"
+                  sx={{ p: 1 }}
+                >
+                  {session.user?.image ? (
+                    <Avatar 
+                      src={session.user.image}
+                      alt={session.user.name || 'User avatar'}
+                      sx={{ width: 24, height: 24 }}
+                    />
+                  ) : (
+                    <AccountCircleIcon />
+                  )}
+                </IconButton>
+                <Typography variant="caption" sx={{ fontSize: '0.75rem', lineHeight: 1 }}>
+                  Profil
+                </Typography>
+              </Box>
+              <Menu
+                id="menu-appbar"
+                anchorEl={anchorEl}
+                anchorOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                keepMounted
+                transformOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                open={Boolean(anchorEl)}
+                onClose={handleClose}
+              >
+                <MenuItem onClick={handleProfileClick}>
+                  <AccountCircleIcon sx={{ mr: 1 }} />
+                  Profil
+                </MenuItem>
+                <MenuItem onClick={handleSavedClick}>
+                  <BookmarkIcon sx={{ mr: 1 }} />
+                  Uložené
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={handleThemeToggle}>
+                  {mode === 'dark' ? (
+                    <>
+                      <LightModeIcon sx={{ mr: 1 }} />
+                      Svetlý režim
+                    </>
+                  ) : (
+                    <>
+                      <DarkModeIcon sx={{ mr: 1 }} />
+                      Tmavý režim
+                    </>
+                  )}
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={handleSignOut}>
+                  <LogoutIcon sx={{ mr: 1 }} />
+                  Odhlásiť sa
+                </MenuItem>
+              </Menu>
+            </>
+          ) : (
+            <Link href="/auth/prihlasenie" style={{ color: 'inherit', textDecoration: 'none' }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                <IconButton color="inherit" size="medium" sx={{ p: 1 }}>
+                  <AccountCircleIcon />
+                </IconButton>
+                <Typography variant="caption" sx={{ fontSize: '0.75rem', lineHeight: 1 }}>
+                  Prihlásiť
+                </Typography>
+              </Box>
+            </Link>
+          )}
+        </Toolbar>
+      </Container>
+    </AppBar>
+  );
+}

@@ -28,6 +28,7 @@ export const fetchPosts = async () => {
             createdAt: 'desc',
           },
         },
+        savedPosts: true,
       },
       orderBy: {
         createdAt: 'desc',
@@ -63,6 +64,7 @@ export const fetchPostsByUserId = async (userId: string) => {
             createdAt: 'desc',
           },
         },
+        savedPosts: true,
       },
       orderBy: {
         createdAt: 'desc',
@@ -117,7 +119,8 @@ export async function createPost(formData: FormData) {
       include: {
         user: true,
         likes: true,
-        comments: true
+        comments: true,
+        savedPosts: true
       }
     });
 
@@ -282,15 +285,21 @@ export const fetchPostWithDetails = async (postId: string) => {
             user: true,
           },
           orderBy: {
-            createdAt: "desc",
+            createdAt: 'desc',
           },
         },
+        savedPosts: true,
       },
     });
+
+    if (!post) {
+      throw new Error('Post not found');
+    }
+
     return post;
   } catch (error) {
-    console.error("Error fetching post details:", error);
-    throw new Error("Could not fetch post details");
+    console.error('Error fetching post:', error);
+    throw new Error('Failed to fetch post');
   }
 };
 
@@ -323,7 +332,8 @@ export async function fetchFollowedPosts(userId: string) {
           orderBy: {
             createdAt: 'desc'
           }
-        }
+        },
+        savedPosts: true
       }
     });
     return posts;
@@ -373,3 +383,83 @@ export async function deletePost(postId: string, userId: string) {
     throw new Error('Failed to delete post');
   }
 }
+
+// Toggle save on a post
+export const toggleSave = async (postId: string, userId: string) => {
+  try {
+    const existingSave = await prisma.savedPost.findUnique({
+      where: {
+        postId_userId: {
+          postId,
+          userId,
+        },
+      },
+    });
+
+    if (existingSave) {
+      // Unsave
+      await prisma.savedPost.delete({
+        where: {
+          postId_userId: {
+            postId,
+            userId,
+          },
+        },
+      });
+      return false; // Post is now unsaved
+    } else {
+      // Save
+      await prisma.savedPost.create({
+        data: {
+          postId,
+          userId,
+        },
+      });
+      return true; // Post is now saved
+    }
+  } catch (error) {
+    console.error("Error toggling save:", error);
+    throw new Error("Could not toggle save");
+  }
+};
+
+// Fetch saved posts by user ID
+export const fetchSavedPostsByUserId = async (userId: string) => {
+  try {
+    const savedPosts = await prisma.savedPost.findMany({
+      where: {
+        userId,
+      },
+      include: {
+        post: {
+          include: {
+            user: true,
+            likes: {
+              include: {
+                user: true,
+              },
+            },
+            comments: {
+              include: {
+                user: true,
+              },
+              orderBy: {
+                createdAt: 'desc',
+              },
+            },
+            savedPosts: true
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Transform the data to match the expected format
+    return savedPosts.map(savedPost => savedPost.post);
+  } catch (error) {
+    console.error("Error fetching saved posts:", error);
+    throw new Error("Could not fetch saved posts");
+  }
+};

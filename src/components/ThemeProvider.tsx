@@ -26,44 +26,42 @@ const ColorModeContext = createContext<ColorModeContextType>({
 
 export const useColorMode = () => useContext(ColorModeContext);
 
-// Update in ThemeProvider
-
 const getThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => ({
   palette: {
     mode,
     primary: {
-      main: mode === 'light' ? '#1976d2' : '#0d47a1', // Blue in light, Dark Blue in dark
+      main: mode === 'light' ? '#1976d2' : '#0d47a1',
     },
     blue: {
-      main: mode === 'light' ? '#1976d2' : '#0d47a1', // Custom blue for both light and dark mode
+      main: mode === 'light' ? '#1976d2' : '#0d47a1',
     },
     background: {
-      default: mode === 'light' ? '#ffffff' : '#121212', // White in light, Dark background in dark
+      default: mode === 'light' ? '#ffffff' : '#121212',
       paper: mode === 'light' ? '#f5f5f5' : '#1e1e1e',
     },
     text: {
-      primary: mode === 'light' ? '#000000' : '#ffffff', // Black text in light, White text in dark
-      secondary: mode === 'light' ? '#555555' : '#bbbbbb', // Grey text for secondary in both light and dark
+      primary: mode === 'light' ? '#000000' : '#ffffff',
+      secondary: mode === 'light' ? '#555555' : '#bbbbbb',
     },
   },
   typography: {
     fontFamily: 'Roboto, Arial, sans-serif',
     allVariants: {
-      color: mode === 'light' ? '#000000' : '#ffffff', // Black in light, White in dark for text
+      color: mode === 'light' ? '#000000' : '#ffffff',
     },
-    h1: { color: mode === 'light' ? '#000000' : '#ffffff' }, // Ensure h1 stays black or white
+    h1: { color: mode === 'light' ? '#000000' : '#ffffff' },
     h2: { color: mode === 'light' ? '#000000' : '#ffffff' },
     h3: { color: mode === 'light' ? '#000000' : '#ffffff' },
-    h4: { color: '#000000' }, // h4 is always black regardless of theme
+    h4: { color: '#000000' },
     h5: { color: mode === 'light' ? '#000000' : '#ffffff' },
     h6: { color: mode === 'light' ? '#000000' : '#ffffff' },
-    body1: { color: mode === 'light' ? '#000000' : '#ffffff' }, // Body text will be white in dark mode
+    body1: { color: mode === 'light' ? '#000000' : '#ffffff' },
   },
   components: {
     MuiCssBaseline: {
       styleOverrides: {
         'p': {
-          color: mode === 'light' ? '#000000 !important' : '#ffffff !important', // Override default text color for paragraphs
+          color: mode === 'light' ? '#000000 !important' : '#ffffff !important',
         },
       },
     },
@@ -80,12 +78,20 @@ export default function ThemeProvider({ children }: ThemeProviderProps) {
 
   useEffect(() => {
     setIsClient(true);
+    const savedMode = localStorage.getItem('theme-mode');
+    if (savedMode === 'light' || savedMode === 'dark') {
+      setMode(savedMode);
+    }
   }, []);
 
   const colorMode = useMemo(
     () => ({
       toggleColorMode: () => {
-        setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
+        setMode((prevMode) => {
+          const newMode = prevMode === 'light' ? 'dark' : 'light';
+          localStorage.setItem('theme-mode', newMode);
+          return newMode;
+        });
       },
       mode,
     }),
