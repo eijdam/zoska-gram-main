@@ -14,16 +14,32 @@ import LoginIcon from "@mui/icons-material/Login"
 import InfoIcon from "@mui/icons-material/Info"
 import Brightness4Icon from "@mui/icons-material/Brightness4"
 import Brightness7Icon from "@mui/icons-material/Brightness7"
-import PersonIcon from "@mui/icons-material/Person" // Import missing PersonIcon
+import PersonIcon from "@mui/icons-material/Person"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
 import Image from "next/image"
 import { useColorMode } from "@/components/ThemeProvider"
+import { usePathname } from 'next/navigation'
 
 export default function BottomNavbar() {
-  const [value, setValue] = React.useState(0)
+  const pathname = usePathname()
   const { data: session } = useSession()
   const { toggleColorMode, mode } = useColorMode()
+
+  // Get the active navigation value based on the current path
+  const getActiveNavValue = () => {
+    const path = pathname || ''
+    if (path === '/') return 0
+    if (path === '/prispevok') return 0 // /prispevok should highlight Domov
+    if (path === '/hladanie') return 1
+    if (path.startsWith('/profil')) return 2
+    if (path === '/pridat') return 3
+    if (path === '/auth/odhlasenie') return 4
+    if (path === '/o-mne') return 1
+    if (path === '/auth/prihlasenie') return 2
+    if (path === '/auth/registracia') return 3
+    return 0
+  }
 
   const commonItems = [{ label: "Domov", icon: <HomeIcon />, href: "/" }]
   const authenticatedItems = [
@@ -40,7 +56,7 @@ export default function BottomNavbar() {
         />
       ) : (
         <PersonIcon />
-      ), // Use PersonIcon here
+      ),
       href: "/profil",
     },
     { label: "Pridať", icon: <AddIcon />, href: "/pridat" },
@@ -59,10 +75,7 @@ export default function BottomNavbar() {
     <Box sx={{ width: "100%", position: "fixed", bottom: 0, left: 0, right: 0 }}>
       <BottomNavigation
         showLabels
-        value={value}
-        onChange={(event, newValue) => {
-          setValue(newValue)
-        }}
+        value={getActiveNavValue()}
         sx={{
           backgroundColor: "background.paper",
           "& .MuiBottomNavigationAction-root": {

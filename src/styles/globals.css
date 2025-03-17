@@ -1,0 +1,18 @@
+/* Add styles for avatar images with stories */
+.MuiAvatar-img[data-has-story="true"] {
+  padding: 2px;
+  border-radius: 50%;
+  background: linear-gradient(45deg, #0095f6, #00D1FF, #0095f6);
+}
+
+/* Ensure the avatar container maintains its shape */
+.MuiAvatar-root {
+  position: relative;
+  overflow: visible !important;
+}
+
+/* Add a white border around the actual image */
+.MuiAvatar-img {
+  border: 2px solid white;
+  border-radius: 50%;
+} 

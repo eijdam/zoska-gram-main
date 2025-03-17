@@ -9,24 +9,39 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import Alert from '@mui/material/Alert';
 import Link from 'next/link';
-import { Card, CardContent } from '@mui/material';
+import { Card, CardContent, CircularProgress } from '@mui/material';
+import { useRouter } from 'next/navigation';
 
 export default function SignUpView() {
   const [agreed, setAgreed] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleSignUp = async () => {
     if (!agreed) {
-      setError(true);
+      setError('Musíte súhlasiť s podmienkami používania.');
       return;
     }
+
     try {
-      await signIn('google', {
-        callbackUrl: '/',
+      setIsLoading(true);
+      setError(null);
+
+      const result = await signIn('google', {
         redirect: true,
+        callbackUrl: '/'
       });
-    } catch (error) {
-      console.error('Sign-in error:', error);
+      
+      // Note: This code won't run if redirect is true
+      if (result?.error) {
+        setError('Nepodarilo sa prihlásiť cez Google. Skúste to prosím znova.');
+      }
+    } catch (err) {
+      console.error('Sign-up error:', err);
+      setError('Nastala neočakávaná chyba. Skúste to prosím znova.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -36,7 +51,7 @@ export default function SignUpView() {
       justifyContent="center"
       alignItems="center"
       height="100vh"
-      bgcolor="background.default" // Use theme background color
+      bgcolor="background.default"
     >
       <Card sx={{ maxWidth: 500, width: '100%', boxShadow: 3, borderRadius: 2 }}>
         <CardContent sx={{ padding: 3 }}>
@@ -45,7 +60,7 @@ export default function SignUpView() {
             component="h1"
             align="center"
             gutterBottom
-            color="text.primary" // Ensure this inherits the primary text color based on the theme
+            color="text.primary"
           >
             Registrácia
           </Typography>
@@ -56,7 +71,9 @@ export default function SignUpView() {
                 checked={agreed}
                 onChange={(e) => {
                   setAgreed(e.target.checked);
-                  setError(false);
+                  if (e.target.checked) {
+                    setError(null);
+                  }
                 }}
                 color="primary"
               />
@@ -95,8 +112,8 @@ export default function SignUpView() {
           />
 
           {error && (
-            <Alert severity="error" sx={{ marginTop: 2 }}>
-              Musíte súhlasiť s podmienkami používania.
+            <Alert severity="error" sx={{ marginTop: 2, marginBottom: 2 }}>
+              {error}
             </Alert>
           )}
 
@@ -104,7 +121,7 @@ export default function SignUpView() {
             variant="contained"
             color="primary"
             onClick={handleSignUp}
-            disabled={!agreed}
+            disabled={!agreed || isLoading}
             sx={{
               marginTop: 3,
               width: '100%',
@@ -116,7 +133,11 @@ export default function SignUpView() {
               },
             }}
           >
-            Register with Google
+            {isLoading ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : (
+              'Registrovať sa cez Google'
+            )}
           </Button>
 
           <Typography

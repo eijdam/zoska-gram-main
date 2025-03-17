@@ -26,12 +26,63 @@ export const authOptions: NextAuthOptions = {
   ],
   secret: process.env.NEXTAUTH_SECRET,
   debug: true,
+  session: {
+    strategy: "jwt"
+  },
   pages: {
     signIn: '/auth/prihlasenie',
     signOut: '/auth/odhlasenie',
+    error: '/auth/error',
+  },
+  events: {
+    createUser: async ({ user }) => {
+      try {
+        // Create profile for new user
+        await prisma.profile.create({
+          data: {
+            userId: user.id,
+            bio: "",
+            location: "",
+            interests: [],
+            avatarUrl: user.image || null,
+          },
+        });
+      } catch (error) {
+        console.error("Error creating profile:", error);
+      }
+    },
+    signIn: async ({ user, account, profile }) => {
+      try {
+        // Check if profile exists
+        const existingProfile = await prisma.profile.findUnique({
+          where: { userId: user.id },
+        });
+
+        // Create profile if it doesn't exist
+        if (!existingProfile) {
+          await prisma.profile.create({
+            data: {
+              userId: user.id,
+              bio: "",
+              location: "",
+              interests: [],
+              avatarUrl: user.image || null,
+            },
+          });
+        }
+      } catch (error) {
+        console.error("Error handling sign in:", error);
+      }
+    },
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ user, account, profile }) {
+      if (account?.provider === "google") {
+        return true;
+      }
+      return false;
+    },
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
       }
@@ -44,16 +95,17 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async redirect({ url, baseUrl }) {
-      // After sign in/up, redirect to home
-      if (url.includes('/auth/prihlasenie') || url.includes('/auth/registracia')) {
-        return '/';
+      // If the url starts with the base url, allow it
+      if (url.startsWith(baseUrl)) {
+        // If it's an auth page and we're already authenticated, go to home
+        if (url.includes('/auth/')) {
+          return baseUrl;
+        }
+        // Otherwise allow the redirect
+        return url;
       }
-      // After sign out, redirect to public home
-      if (url === '/') {
-        return baseUrl;
-      }
-      // Default case
-      return url.startsWith(baseUrl) ? url : baseUrl;
+      // Default to base url
+      return baseUrl;
     },
   },
 };

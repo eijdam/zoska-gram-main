@@ -1,13 +1,42 @@
 'use client';
 
+import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Link from 'next/link';
+import { Alert, CircularProgress } from '@mui/material';
+import { useRouter } from 'next/navigation';
 import Head from 'next/head'; // Import Head component from Next.js
 
 export default function SignInView() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  const handleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const result = await signIn('google', {
+        redirect: true,
+        callbackUrl: '/'
+      });
+
+      // Note: This code won't run if redirect is true
+      if (result?.error) {
+        setError('Nepodarilo sa prihlásiť cez Google. Skúste to prosím znova.');
+      }
+    } catch (err) {
+      console.error('Sign-in error:', err);
+      setError('Nastala neočakávaná chyba. Skúste to prosím znova.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <>
       {/* Set the page title and optional meta tags */}
@@ -48,22 +77,33 @@ export default function SignInView() {
           >
             Prihláste sa cez svoj účet Google
           </Typography>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
           
           <Button 
             variant="contained" 
             color="primary" 
-            onClick={() => signIn('google')}
+            onClick={handleSignIn}
+            disabled={isLoading}
             sx={{
               width: '100%',
               padding: '12px',
               fontWeight: 'bold',
               borderRadius: '8px',
               '&:hover': {
-                backgroundColor: '#1565c0', // Make hover effect darker
+                backgroundColor: '#1565c0',
               },
             }}
           >
-            Sign in with Google
+            {isLoading ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : (
+              'Prihlásiť sa cez Google'
+            )}
           </Button>
 
           <Typography 

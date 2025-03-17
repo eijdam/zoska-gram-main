@@ -4,13 +4,24 @@ import { useEffect, useState } from 'react';
 import { 
   Container, Typography, Avatar, Box, Card, CardContent, CircularProgress, 
   Chip, ImageList, ImageListItem, IconButton, Divider, Tab, Tabs,
-  Grid, Button, LinearProgress, Paper, Collapse
+  Grid, Button, LinearProgress, Paper, Collapse, Alert, Dialog
 } from '@mui/material';
-import { fetchProfileByUserId } from '@/app/actions/profiles';
+import { 
+  fetchProfileByUserId, 
+  updateProfile, 
+  createProfileIfNotExists, 
+  toggleFollow, 
+  getFollowCounts,
+  isFollowing,
+  getFollowersWithDetails,
+  getFollowingWithDetails,
+  fetchProfile
+} from '@/app/actions/profiles';
 import { fetchPostsByUserId } from '@/app/actions/posts';
 import { Profile, User, Post } from '@prisma/client';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
@@ -20,7 +31,12 @@ import MoodIcon from '@mui/icons-material/Mood';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import EditProfileDialog from '@/components/EditProfileDialog';
+import FollowersDialog from '@/components/FollowersDialog';
+import FollowingDialog from '@/components/FollowingDialog';
 import { formatDistanceToNow } from 'date-fns';
+import Stories from '@/components/Stories';
+import { getStories } from '@/app/actions/stories';
 
 type ProfileWithUser = Profile & {
   user: User;
@@ -60,7 +76,19 @@ export default function ProfilePage({ params }: { params: { userId: string } }) 
   const [tabValue, setTabValue] = useState(0);
   const [showMoodBoard, setShowMoodBoard] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
+  const [isFollowingUser, setIsFollowingUser] = useState(false);
+  const [isLoadingFollow, setIsLoadingFollow] = useState(false);
+  const [isFollowersDialogOpen, setIsFollowersDialogOpen] = useState(false);
+  const [isFollowingDialogOpen, setIsFollowingDialogOpen] = useState(false);
+  const [followers, setFollowers] = useState<(User & { profile: Profile | null })[]>([]);
+  const [following, setFollowing] = useState<(User & { profile: Profile | null })[]>([]);
+  const [hasStory, setHasStory] = useState(false);
+  const [viewStoryDialogOpen, setViewStoryDialogOpen] = useState(false);
   const router = useRouter();
+  const { data: session } = useSession();
 
   // Custom theme colors
   const themeColors = {
@@ -74,8 +102,6 @@ export default function ProfilePage({ params }: { params: { userId: string } }) 
   };
 
   // Dummy data for demonstration
-  const followers = 1234;
-  const following = 567;
   const recentActivity = [
     { type: 'like', user: 'John Doe', time: '2 hours ago' },
     { type: 'comment', user: 'Jane Smith', time: '5 hours ago' },
@@ -103,42 +129,168 @@ export default function ProfilePage({ params }: { params: { userId: string } }) 
     recommendedConnections: ['Tech Innovators', 'Creative Professionals', 'Community Builders']
   };
 
+  const isOwnProfile = session?.user?.id === params.userId;
+
   useEffect(() => {
     const loadProfileAndPosts = async () => {
+      if (!params.userId) return;
+      
       try {
         setIsLoading(true);
+        setError(null);
+
+        // First ensure profile exists if it's the current user
+        if (session?.user?.id === params.userId) {
+          await createProfileIfNotExists(params.userId);
+        }
+
+        // Then fetch profile and posts
         const [profileData, postsData] = await Promise.all([
           fetchProfileByUserId(params.userId),
           fetchPostsByUserId(params.userId)
         ]);
+
+        if (!profileData) {
+          throw new Error('Profile not found');
+        }
+
         setProfile(profileData);
-        setPosts(postsData);
-        setError(null);
+        setPosts(postsData || []);
       } catch (err) {
-        setError('Failed to load profile');
         console.error('Error loading profile:', err);
+        setError('Failed to load profile. Please try refreshing the page.');
       } finally {
         setIsLoading(false);
       }
     };
 
+    const checkStories = async () => {
+      const result = await getStories();
+      if (result.success) {
+        const userHasStory = result.storyGroups.some(group => group.userId === params.userId);
+        setHasStory(userHasStory);
+      }
+    };
+
     loadProfileAndPosts();
-  }, [params.userId]);
+    checkStories();
+  }, [params.userId, session?.user?.id]);
+
+  useEffect(() => {
+    if (session?.user?.id && params.userId) {
+      checkFollowStatus();
+      loadFollowCounts();
+      loadFollowLists();
+    }
+  }, [session?.user?.id, params.userId]);
+
+  const loadFollowCounts = async () => {
+    try {
+      const counts = await getFollowCounts(params.userId);
+      setFollowCounts(counts);
+    } catch (err) {
+      console.error('Error loading follow counts:', err);
+    }
+  };
+
+  const checkFollowStatus = async () => {
+    if (!session?.user?.id || isOwnProfile) return;
+    try {
+      const following = await isFollowing(session.user.id, params.userId);
+      setIsFollowingUser(following);
+    } catch (err) {
+      console.error('Error checking follow status:', err);
+    }
+  };
+
+  const loadFollowLists = async () => {
+    try {
+      const [followersData, followingData] = await Promise.all([
+        getFollowersWithDetails(params.userId),
+        getFollowingWithDetails(params.userId)
+      ]);
+      setFollowers(followersData);
+      setFollowing(followingData);
+    } catch (err) {
+      console.error('Error loading follow lists:', err);
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    if (!session?.user?.id) {
+      router.push('/auth/prihlasenie');
+      return;
+    }
+
+    try {
+      setIsLoadingFollow(true);
+      setError(null); // Clear any previous errors
+      
+      console.log('Follow toggle initiated:', {
+        currentUserId: session.user.id,
+        targetUserId: params.userId
+      });
+
+      const isNowFollowing = await toggleFollow(session.user.id, params.userId);
+      
+      console.log('Follow toggle result:', { isNowFollowing });
+      
+      setIsFollowingUser(isNowFollowing);
+      // Update follower count
+      setFollowCounts(prev => ({
+        ...prev,
+        followers: prev.followers + (isNowFollowing ? 1 : -1)
+      }));
+    } catch (err) {
+      console.error('Error in handleFollowToggle:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update follow status');
+      // Reset the following state to its previous value
+      await checkFollowStatus();
+      // Reset the follower count
+      await loadFollowCounts();
+    } finally {
+      setIsLoadingFollow(false);
+    }
+  };
+
+  const handleFollowersClick = () => {
+    setIsFollowersDialogOpen(true);
+  };
+
+  const handleFollowingClick = () => {
+    setIsFollowingDialogOpen(true);
+  };
+
+  const handleUnfollow = (userId: string) => {
+    // Update the following list immediately in the UI
+    setFollowing(prev => prev.filter(user => user.id !== userId));
+    // Update the follow counts
+    setFollowCounts(prev => ({
+      ...prev,
+      following: prev.following - 1
+    }));
+  };
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress />
-      </Box>
+      <Container maxWidth="lg" sx={{ mt: 4 }}>
+        <LinearProgress />
+      </Container>
     );
   }
 
-  if (error || !profile) {
+  if (error) {
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Typography color="error" align="center">
-          {error || 'Profile not found'}
-        </Typography>
+      <Container maxWidth="lg" sx={{ mt: 4 }}>
+        <Alert severity="error">{error}</Alert>
+      </Container>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4 }}>
+        <Alert severity="error">Profile not found</Alert>
       </Container>
     );
   }
@@ -153,6 +305,19 @@ export default function ProfilePage({ params }: { params: { userId: string } }) 
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+  };
+
+  const handleEditProfile = async (data: { name?: string; bio?: string; location?: string }) => {
+    if (!profile || !session?.user?.id) return;
+
+    try {
+      const updatedProfile = await updateProfile(session.user.id, data);
+      setProfile(updatedProfile);
+      setIsEditDialogOpen(false);
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      setError('Failed to update profile');
+    }
   };
 
   const CollapsibleSection = ({ 
@@ -217,6 +382,12 @@ export default function ProfilePage({ params }: { params: { userId: string } }) 
     </Paper>
   );
 
+  const handleAvatarClick = () => {
+    if (hasStory) {
+      setViewStoryDialogOpen(true);
+    }
+  };
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Card sx={{ overflow: 'hidden' }}>
@@ -226,32 +397,66 @@ export default function ProfilePage({ params }: { params: { userId: string } }) 
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h6" sx={{ flex: 1 }}>{profile.user.name}</Typography>
-          <IconButton>
-            <SettingsIcon />
-          </IconButton>
+          {isOwnProfile && (
+            <IconButton 
+              sx={{ marginLeft: 'auto' }}
+              onClick={() => setIsEditDialogOpen(true)}
+            >
+              <SettingsIcon />
+            </IconButton>
+          )}
         </Box>
 
         {/* Profile Info Section */}
         <CardContent>
           <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} alignItems="center" gap={4}>
-            <Avatar
-              src={profile.user.image || undefined}
-              alt={profile.user.name || 'User'}
-              sx={{ 
-                width: 150, 
-                height: 150,
-                border: 3,
-                borderColor: 'primary.main'
-              }}
-            />
+            <Box
+              onClick={handleAvatarClick}
+              sx={hasStory ? {
+                background: 'linear-gradient(45deg, #405DE6, #5851DB, #833AB4, #C13584, #E1306C, #FD1D1D)',
+                padding: '2px',
+                borderRadius: '50%',
+                cursor: 'pointer'
+              } : {}}
+            >
+              <Avatar
+                src={profile.user.image || undefined}
+                alt={profile.user.name || 'User'}
+                sx={{ 
+                  width: 150, 
+                  height: 150,
+                  ...(hasStory && { border: '3px solid white' })
+                }}
+                data-has-story={hasStory}
+              />
+            </Box>
             <Box flex={1}>
               <Box display="flex" alignItems="center" gap={2} mb={2}>
                 <Typography variant="h5">
                   {profile.user.name}
                 </Typography>
-                <Button variant="contained" size="small">
-                  Follow
-                </Button>
+                {isOwnProfile ? (
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    onClick={() => setIsEditDialogOpen(true)}
+                  >
+                    Edit Profile
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={handleFollowToggle}
+                    disabled={isLoadingFollow}
+                  >
+                    {isLoadingFollow ? (
+                      <CircularProgress size={20} />
+                    ) : (
+                      isFollowingUser ? 'Unfollow' : 'Follow'
+                    )}
+                  </Button>
+                )}
               </Box>
               
               <Box display="flex" gap={4} mb={3}>
@@ -259,12 +464,30 @@ export default function ProfilePage({ params }: { params: { userId: string } }) 
                   <Typography variant="h6"><strong>{posts.length}</strong></Typography>
                   <Typography variant="body2" color="text.secondary">posts</Typography>
                 </Box>
-                <Box textAlign="center">
-                  <Typography variant="h6"><strong>{followers}</strong></Typography>
+                <Box 
+                  textAlign="center" 
+                  onClick={handleFollowersClick}
+                  sx={{ 
+                    cursor: 'pointer',
+                    '&:hover': {
+                      opacity: 0.8
+                    }
+                  }}
+                >
+                  <Typography variant="h6"><strong>{followCounts.followers}</strong></Typography>
                   <Typography variant="body2" color="text.secondary">followers</Typography>
                 </Box>
-                <Box textAlign="center">
-                  <Typography variant="h6"><strong>{following}</strong></Typography>
+                <Box 
+                  textAlign="center"
+                  onClick={handleFollowingClick}
+                  sx={{ 
+                    cursor: 'pointer',
+                    '&:hover': {
+                      opacity: 0.8
+                    }
+                  }}
+                >
+                  <Typography variant="h6"><strong>{followCounts.following}</strong></Typography>
                   <Typography variant="body2" color="text.secondary">following</Typography>
                 </Box>
               </Box>
@@ -298,15 +521,20 @@ export default function ProfilePage({ params }: { params: { userId: string } }) 
           </Box>
 
           {/* Recent Activity */}
-          <Box sx={{ mt: 3 }}>
+          <Box sx={{ mt: 3, px: 3 }}>
             <Typography variant="subtitle2" gutterBottom>
-              Recent Activity
+              Nedávna aktivita
             </Typography>
-            {recentActivity.map((activity, index) => (
-              <Typography key={index} variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                <strong>{activity.user}</strong> {activity.type === 'like' ? 'liked your post' : 'commented on your post'} • {activity.time}
+            {followers.slice(0, 5).map((follower) => (
+              <Typography key={follower.id} variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                <strong>{follower.name}</strong> vás začal sledovať • {formatDistanceToNow(new Date())} ago
               </Typography>
             ))}
+            {followers.length === 0 && (
+              <Typography variant="body2" color="text.secondary">
+                Žiadna nedávna aktivita
+              </Typography>
+            )}
           </Box>
 
           {/* Collapsible Mood Board */}
@@ -570,6 +798,41 @@ export default function ProfilePage({ params }: { params: { userId: string } }) 
             </Box>
           </Box>
         </TabPanel>
+
+        {isOwnProfile && profile && (
+          <EditProfileDialog
+            open={isEditDialogOpen}
+            onClose={() => setIsEditDialogOpen(false)}
+            profile={profile}
+            onSave={handleEditProfile}
+          />
+        )}
+
+        {/* Followers/Following Dialog */}
+        <FollowersDialog
+          open={isFollowersDialogOpen}
+          onClose={() => setIsFollowersDialogOpen(false)}
+          followers={followers}
+          isOwnProfile={isOwnProfile}
+        />
+
+        <FollowingDialog
+          open={isFollowingDialogOpen}
+          onClose={() => setIsFollowingDialogOpen(false)}
+          following={following}
+          currentUserId={session?.user?.id || ''}
+          isOwnProfile={isOwnProfile}
+          onUnfollow={handleUnfollow}
+        />
+
+        {/* Story Viewing Dialog */}
+        {hasStory && (
+          <Stories
+            initialUserId={params.userId}
+            open={viewStoryDialogOpen}
+            onClose={() => setViewStoryDialogOpen(false)}
+          />
+        )}
       </Card>
     </Container>
   );

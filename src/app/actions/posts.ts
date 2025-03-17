@@ -3,14 +3,35 @@
 "use server";
 
 // Import Prisma client
-import { prisma } from "@/app/api/auth/[...nextauth]/prisma";
+import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
+import { writeFile, mkdir, unlink } from 'fs/promises';
+import { join } from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 // Fetch all posts
 export const fetchPosts = async () => {
   try {
     const posts = await prisma.post.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { user: true }, // Include user who created the post
+      include: {
+        user: true,
+        likes: {
+          include: {
+            user: true,
+          },
+        },
+        comments: {
+          include: {
+            user: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
 
     return posts;
@@ -20,35 +41,335 @@ export const fetchPosts = async () => {
   }
 };
 
-// Fetch posts by a specific user ID
+// Fetch posts by user ID
 export const fetchPostsByUserId = async (userId: string) => {
   try {
     const posts = await prisma.post.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
+      where: {
+        userId,
+      },
+      include: {
+        user: true,
+        likes: {
+          include: {
+            user: true,
+          },
+        },
+        comments: {
+          include: {
+            user: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
 
     return posts;
   } catch (error) {
-    console.error("Error fetching posts by userId:", error);
+    console.error("Error fetching posts:", error);
     throw new Error("Could not fetch posts");
   }
 };
 
 // Create a new post
-export const createPost = async (userId: string, imageUrl: string, caption?: string) => {
+export async function createPost(formData: FormData) {
   try {
-    const newPost = await prisma.post.create({
+    const userId = formData.get('userId') as string;
+    const caption = formData.get('caption') as string;
+    const file = formData.get('file') as File;
+
+    if (!userId || !file) {
+      throw new Error('Missing required fields');
+    }
+
+    // Convert the file to a buffer
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Ensure the uploads directory exists
+    const uploadDir = join(process.cwd(), 'public', 'uploads');
+    try {
+      await mkdir(uploadDir, { recursive: true });
+    } catch (error) {
+      // Ignore error if directory already exists
+    }
+
+    // Create a unique filename
+    const fileExtension = file.name.split('.').pop() || '';
+    const uniqueFilename = `${uuidv4()}.${fileExtension}`;
+    const filePath = join(uploadDir, uniqueFilename);
+
+    // Save the file
+    await writeFile(filePath, buffer);
+
+    // Create the post in the database
+    const post = await prisma.post.create({
       data: {
-        userId,
-        imageUrl,
         caption,
+        imageUrl: `/uploads/${uniqueFilename}`,
+        userId
+      },
+      include: {
+        user: true,
+        likes: true,
+        comments: true
+      }
+    });
+
+    revalidatePath('/');
+    revalidatePath(`/profil/${userId}`);
+    return post;
+  } catch (error) {
+    console.error('Error creating post:', error);
+    throw new Error('Failed to create post');
+  }
+}
+
+// Toggle like on a post
+export const toggleLike = async (postId: string, userId: string) => {
+  try {
+    const existingLike = await prisma.like.findUnique({
+      where: {
+        postId_userId: {
+          postId,
+          userId,
+        },
       },
     });
 
-    return newPost;
+    if (existingLike) {
+      // Unlike
+      await prisma.like.delete({
+        where: {
+          postId_userId: {
+            postId,
+            userId,
+          },
+        },
+      });
+      return false; // Post is now unliked
+    } else {
+      // Like
+      await prisma.like.create({
+        data: {
+          postId,
+          userId,
+        },
+      });
+      return true; // Post is now liked
+    }
   } catch (error) {
-    console.error("Error creating post:", error);
-    throw new Error("Could not create post");
+    console.error("Error toggling like:", error);
+    throw new Error("Could not toggle like");
   }
 };
+
+// Add comment to a post
+export const addComment = async (postId: string, userId: string, content: string) => {
+  try {
+    const comment = await prisma.comment.create({
+      data: {
+        postId,
+        userId,
+        content,
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    return comment;
+  } catch (error) {
+    console.error("Error adding comment:", error);
+    throw new Error("Could not add comment");
+  }
+};
+
+// Delete comment
+export const deleteComment = async (commentId: string, userId: string) => {
+  try {
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!comment || comment.userId !== userId) {
+      throw new Error("Not authorized to delete this comment");
+    }
+
+    await prisma.comment.delete({
+      where: { id: commentId },
+    });
+  } catch (error) {
+    console.error("Error deleting comment:", error);
+    throw new Error("Could not delete comment");
+  }
+};
+
+// Edit comment
+export const editComment = async (commentId: string, userId: string, content: string) => {
+  'use server';
+  
+  console.log('Server: Starting edit comment...', { commentId, userId }); // Debug log
+  
+  if (!commentId || !userId || !content) {
+    console.error('Server: Missing required parameters', { commentId, userId, content });
+    throw new Error("Missing required parameters for editing comment");
+  }
+
+  try {
+    // First check if the comment exists and belongs to the user
+    console.log('Server: Checking comment existence...'); // Debug log
+    const existingComment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      include: { user: true }
+    });
+
+    console.log('Server: Found existing comment:', existingComment); // Debug log
+
+    if (!existingComment) {
+      console.error('Server: Comment not found', { commentId });
+      throw new Error("Comment not found");
+    }
+
+    if (existingComment.userId !== userId) {
+      console.error('Server: Unauthorized edit attempt', { commentId, userId, ownerId: existingComment.userId });
+      throw new Error("Not authorized to edit this comment");
+    }
+
+    // Update the comment
+    console.log('Server: Updating comment...'); // Debug log
+    const updatedComment = await prisma.comment.update({
+      where: { id: commentId },
+      data: { 
+        content,
+        updatedAt: new Date() 
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    console.log('Server: Comment updated successfully:', updatedComment); // Debug log
+    return updatedComment;
+  } catch (error) {
+    console.error("Server: Error editing comment:", error);
+    if (error instanceof Error) {
+      throw new Error(`Could not edit comment: ${error.message}`);
+    }
+    throw new Error("Could not edit comment: Unknown error");
+  }
+};
+
+// Fetch post with likes and comments
+export const fetchPostWithDetails = async (postId: string) => {
+  try {
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      include: {
+        user: true,
+        likes: {
+          include: {
+            user: true,
+          },
+        },
+        comments: {
+          include: {
+            user: true,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+      },
+    });
+    return post;
+  } catch (error) {
+    console.error("Error fetching post details:", error);
+    throw new Error("Could not fetch post details");
+  }
+};
+
+export async function fetchFollowedPosts(userId: string) {
+  try {
+    const posts = await prisma.post.findMany({
+      where: {
+        user: {
+          followers: {
+            some: {
+              followerId: userId
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        user: true,
+        likes: {
+          include: {
+            user: true
+          }
+        },
+        comments: {
+          include: {
+            user: true
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        }
+      }
+    });
+    return posts;
+  } catch (error) {
+    console.error('Error fetching followed posts:', error);
+    throw new Error('Failed to fetch followed posts');
+  }
+}
+
+export async function deletePost(postId: string, userId: string) {
+  try {
+    // First check if the post belongs to the user
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      select: { userId: true, imageUrl: true }
+    });
+
+    if (!post) {
+      throw new Error('Post not found');
+    }
+
+    if (post.userId !== userId) {
+      throw new Error('Not authorized to delete this post');
+    }
+
+    // Delete the post and all related data (likes, comments)
+    await prisma.post.delete({
+      where: { id: postId }
+    });
+
+    // Delete the image file from uploads directory
+    const imagePath = join(process.cwd(), 'public', post.imageUrl);
+    try {
+      await unlink(imagePath);
+    } catch (error) {
+      console.error('Error deleting image file:', error);
+      // Continue even if file deletion fails
+    }
+
+    revalidatePath('/');
+    revalidatePath('/prispevok');
+    revalidatePath(`/profil/${userId}`);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    throw new Error('Failed to delete post');
+  }
+}
