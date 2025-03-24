@@ -15,14 +15,25 @@ type ProfileWithUser = Profile & {
   user: User;
 };
 
+// Define the StoryGroup type based on how it's used in the component
+interface StoryGroup {
+  userId: string;
+  stories: any[]; // Replace 'any' with the actual story type if available
+}
+
+interface GetStoriesResult {
+  success: boolean;
+  storyGroups: StoryGroup[];
+}
+
 export default function SearchPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [profiles, setProfiles] = useState<ProfileWithUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [storyGroups, setStoryGroups] = useState([]);
+  const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
   const [viewStoryDialogOpen, setViewStoryDialogOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const router = useRouter();
 
   // Load all profiles initially
@@ -46,8 +57,8 @@ export default function SearchPage() {
 
   useEffect(() => {
     const fetchStories = async () => {
-      const result = await getStories();
-      if (result.success) {
+      const result = await getStories() as { success: boolean; storyGroups?: StoryGroup[] };
+      if (result.success && result.storyGroups) {
         setStoryGroups(result.storyGroups);
       }
     };

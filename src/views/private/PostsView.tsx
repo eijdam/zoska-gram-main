@@ -104,10 +104,13 @@ export default function PostsView({ initialPosts }: { initialPosts?: PostWithDet
     if (!session?.user?.id) {
       return;
     }
-
+    
+    // Create a local variable for the user to avoid repeated null checks
+    const user = session.user;
+    
     try {
       setLoadingStates(prev => ({ ...prev, [`like-${postId}`]: true }));
-      const isLiked = await toggleLike(postId, session.user.id);
+      const isLiked = await toggleLike(postId, user.id!); // Add non-null assertion here
       
       setPosts(currentPosts => 
         currentPosts.map(post => {
@@ -117,16 +120,16 @@ export default function PostsView({ initialPosts }: { initialPosts?: PostWithDet
                 ...post,
                 likes: [...post.likes, { 
                   id: Date.now().toString(),
-                  userId: session.user.id!,
+                  userId: user.id,
                   postId,
-                  user: session.user,
+                  user: user,
                   createdAt: new Date()
                 } as Like & { user: User }]
               };
             } else {
               return {
                 ...post,
-                likes: post.likes.filter(like => like.userId !== session.user.id)
+                likes: post.likes.filter(like => like.userId !== user.id)
               };
             }
           }
@@ -383,10 +386,17 @@ export default function PostsView({ initialPosts }: { initialPosts?: PostWithDet
     if (!session?.user?.id) {
       return;
     }
-
+    
+    if (!session?.user?.id) {
+      return;
+    }
+    
+    // Create a local variable for the user to avoid repeated null checks
+    const user = session.user;
+    
     try {
       setLoadingStates(prev => ({ ...prev, [`save-${postId}`]: true }));
-      const isSaved = await toggleSave(postId, session.user.id);
+      const isSaved = await toggleSave(postId, user.id!); // Add non-null assertion here
       
       setPosts(currentPosts => 
         currentPosts.map(post => {
@@ -394,12 +404,12 @@ export default function PostsView({ initialPosts }: { initialPosts?: PostWithDet
             if (isSaved) {
               return {
                 ...post,
-                savedPosts: [...(post.savedPosts || []), { userId: session.user.id! }]
+                savedPosts: [...(post.savedPosts || []), { userId: user.id! }] // Add non-null assertion here
               };
             } else {
               return {
                 ...post,
-                savedPosts: (post.savedPosts || []).filter(save => save.userId !== session.user.id)
+                savedPosts: (post.savedPosts || []).filter(save => save.userId !== user.id!)
               };
             }
           }
@@ -766,7 +776,7 @@ export default function PostsView({ initialPosts }: { initialPosts?: PostWithDet
             fullWidth
             multiline
             maxRows={4}
-            value={commentTexts[selectedPostId] || ''}
+            value={selectedPostId ? commentTexts[selectedPostId] || '' : ''}
             onChange={(e) => setCommentTexts(prev => ({ ...prev, [selectedPostId!]: e.target.value }))}
             onKeyPress={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {

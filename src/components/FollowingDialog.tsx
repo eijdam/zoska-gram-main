@@ -17,7 +17,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import { User, Profile } from '@prisma/client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toggleFollow } from '@/app/actions/profiles';
 import { useRouter } from 'next/navigation';
 
@@ -43,7 +43,7 @@ export default function FollowingDialog({
   const router = useRouter();
 
   // Update local state when props change
-  useState(() => {
+  useEffect(() => {
     setLocalFollowing(following);
   }, [following]);
 

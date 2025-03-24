@@ -28,7 +28,11 @@ interface StoryGroup {
   userImage: string;
   stories: Story[];
 }
-
+interface GetStoriesResult {
+  success: boolean;
+  storyGroups?: StoryGroup[];
+  error?: string;
+}
 // Add this CSS at the top of the file
 const storyBorderGradient = {
   background: 'linear-gradient(45deg, #405DE6, #5851DB, #833AB4, #C13584, #E1306C, #FD1D1D)',
@@ -81,8 +85,8 @@ export default function Stories({ initialUserId, open, onClose, onStoryClick }: 
     const fetchStories = async () => {
       try {
         setError(null);
-        const result = await getStories();
-        if (result.success) {
+        const result = await getStories() as GetStoriesResult;
+        if (result.success && result.storyGroups) {
           setStoryGroups(result.storyGroups);
         } else {
           setError(result.error || 'Failed to fetch stories');
@@ -115,17 +119,17 @@ export default function Stories({ initialUserId, open, onClose, onStoryClick }: 
       if (!session?.user?.id) {
         throw new Error('No user session found');
       }
-
+  
       const formData = new FormData();
       formData.append('file', file);
       formData.append('caption', caption);
       formData.append('userId', session.user.id);
-
+  
       const result = await createStory(formData);
       if (result.success) {
         // Refresh stories after upload
-        const storiesResult = await getStories();
-        if (storiesResult.success) {
+        const storiesResult = await getStories() as GetStoriesResult;
+        if (storiesResult.success && storiesResult.storyGroups) {
           setStoryGroups(storiesResult.storyGroups);
         } else {
           throw new Error(storiesResult.error);

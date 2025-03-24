@@ -10,12 +10,12 @@ import {
   Button,
   Box,
 } from '@mui/material';
-import { Profile } from '@prisma/client';
+import { Profile, User } from '@prisma/client';
 
 interface EditProfileDialogProps {
   open: boolean;
   onClose: () => void;
-  profile: Profile;
+  profile: Profile & { user?: User };
   onSave: (data: { name: string; bio: string; location: string }) => Promise<void>;
 }
 
@@ -76,4 +76,4 @@ export default function EditProfileDialog({ open, onClose, profile, onSave }: Ed
       </DialogActions>
     </Dialog>
   );
-} 
+}
