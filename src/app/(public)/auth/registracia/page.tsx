@@ -1,20 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { Box, Container, Typography, Paper, Button } from '@mui/material';
+import Image from 'next/image';
 import { signIn } from 'next-auth/react';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
-import Box from '@mui/material/Box';
+import GoogleIcon from '@mui/icons-material/Google';
+import { useState } from 'react';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import Alert from '@mui/material/Alert';
 import Link from 'next/link';
-import { Card, CardContent, Container, Paper } from '@mui/material';
-import GoogleIcon from '@mui/icons-material/Google';
 import { useRouter } from 'next/navigation';
 import { CircularProgress } from '@mui/material';
 
-export default function SignUpView() {
+export default function RegistrationPage() {
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -68,7 +66,7 @@ export default function SignUpView() {
         <Box sx={{ textAlign: 'center' }}>
           {/* Logo */}
           <Box sx={{ mb: 3 }}>
-            <img 
+            <Image 
               src="/logo.png" 
               alt="ZoskaGram logo" 
               width={120} 

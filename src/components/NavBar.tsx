@@ -24,6 +24,8 @@ import {
   LightMode as LightModeIcon,
   DarkMode as DarkModeIcon
 } from '@mui/icons-material';
+import InfoIcon from '@mui/icons-material/Info';
+import HowToRegIcon from '@mui/icons-material/HowToReg';
 import { signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -97,10 +99,18 @@ export default function NavBar() {
           minHeight: '56px',
           px: 1
         }}>
-          <NavButton href="/" icon={<HomeIcon />} label="Feed" />
-          <NavButton href="/hladanie" icon={<SearchIcon />} label="Hľadať" />
-          <NavButton href="/pridat" icon={<AddIcon />} label="Pridať" />
-
+          <NavButton href="/" icon={<HomeIcon />} label="Domov" />
+          {session ? (
+            <>
+              <NavButton href="/hladanie" icon={<SearchIcon />} label="Hľadať" />
+              <NavButton href="/pridat" icon={<AddIcon />} label="Pridať" />
+            </>
+          ) : (
+            <>
+              <NavButton href="/o-mne" icon={<InfoIcon />} label="O nás" />
+              <NavButton href="/auth/registracia" icon={<HowToRegIcon />} label="Registrácia" />
+            </>
+          )}
           {session ? (
             <>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
