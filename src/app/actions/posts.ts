@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { writeFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { uploadToBlob } from '@/lib/blob';
 
 // Fetch all posts
 export const fetchPosts = async () => {
@@ -81,51 +82,40 @@ export const fetchPostsByUserId = async (userId: string) => {
 // Create a new post
 export async function createPost(formData: FormData) {
   try {
-    const userId = formData.get('userId') as string;
-    const caption = formData.get('caption') as string;
     const file = formData.get('file') as File;
+    const caption = formData.get('caption') as string;
+    const userId = formData.get('userId') as string;
 
-    if (!userId || !file) {
+    if (!file || !userId) {
       throw new Error('Missing required fields');
     }
 
-    // Convert the file to a buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Upload to Vercel Blob
+    const filename = `posts/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+    const imageUrl = await uploadToBlob(file, filename);
 
-    // Ensure the uploads directory exists
-    const uploadDir = join(process.cwd(), 'public', 'uploads');
-    try {
-      await mkdir(uploadDir, { recursive: true });
-    } catch (error) {
-      // Ignore error if directory already exists
-    }
-
-    // Create a unique filename
-    const fileExtension = file.name.split('.').pop() || '';
-    const uniqueFilename = `${uuidv4()}.${fileExtension}`;
-    const filePath = join(uploadDir, uniqueFilename);
-
-    // Save the file
-    await writeFile(filePath, buffer);
-
-    // Create the post in the database
+    // Create post in database with blob URL
     const post = await prisma.post.create({
       data: {
+        imageUrl,
         caption,
-        imageUrl: `/uploads/${uniqueFilename}`,
         userId
       },
       include: {
         user: true,
-        likes: true,
-        comments: true,
-        savedPosts: true
+        likes: {
+          include: {
+            user: true
+          }
+        },
+        comments: {
+          include: {
+            user: true
+          }
+        }
       }
     });
 
-    revalidatePath('/');
-    revalidatePath(`/profil/${userId}`);
     return post;
   } catch (error) {
     console.error('Error creating post:', error);

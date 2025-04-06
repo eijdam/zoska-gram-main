@@ -5,78 +5,39 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { mkdir } from 'fs/promises';
 import { prisma } from '@/lib/prisma';
+import { uploadToBlob } from '@/lib/blob';
 
 export async function createStory(formData: FormData) {
   try {
-    console.log('Starting story creation...');
     const file = formData.get('file') as File;
     const caption = formData.get('caption') as string;
     const userId = formData.get('userId') as string;
 
     if (!file || !userId) {
-      console.error('Missing required fields:', { file: !!file, userId: !!userId });
       throw new Error('Missing required fields');
     }
 
-    console.log('Creating story for user:', userId);
+    // Upload to Vercel Blob
+    const filename = `stories/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+    const imageUrl = await uploadToBlob(file, filename);
 
-    // Ensure uploads directory exists
-    const uploadDir = join(process.cwd(), 'public', 'uploads');
-    try {
-      await mkdir(uploadDir, { recursive: true });
-      console.log('Upload directory created/verified:', uploadDir);
-    } catch (error) {
-      console.error('Error creating upload directory:', error);
-    }
-
-    // Create unique filename
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const filename = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
-    const path = join(uploadDir, filename);
-    
-    console.log('Saving file:', path);
-    
-    // Save file
-    await writeFile(path, buffer);
-    const imageUrl = `/uploads/${filename}`;
-
-    console.log('File saved successfully:', imageUrl);
-
-    // Calculate expiration (24 hours from now)
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
-
-    // Verify user exists before creating story
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
-    });
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    // Save to database
-    console.log('Creating database entry...');
+    // Create story in database with blob URL
     const story = await prisma.story.create({
       data: {
         imageUrl,
         caption,
         userId,
-        expiresAt
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
       },
       include: {
         user: true
       }
     });
 
-    console.log('Story created successfully:', story);
-
-    revalidatePath('/');
     return { success: true, story };
   } catch (error) {
     console.error('Error creating story:', error);
-    return { success: false, error: 'Failed to create story', details: error instanceof Error ? error.message : String(error) };
+    return { success: false, error: 'Failed to create story' };
   }
 }
 
@@ -140,4 +101,4 @@ export async function getStories() {
     console.error('Error fetching stories:', error);
     return { success: false, error: 'Failed to fetch stories', details: error instanceof Error ? error.message : String(error) };
   }
-} 
+}
